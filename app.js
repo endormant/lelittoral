@@ -29,9 +29,15 @@ async function up(f){const d=await new Promise(r=>{const x=new FileReader();x.on
 async function sync(){if(!localStorage.gh)return;for(const[k,p]of[['posts','data/posts.json'],['site','data/site.json']]){const g=await ghGet(p);if(g)k=='posts'?posts=JSON.parse(g.text):site=JSON.parse(g.text)}}
 
 let RM;
-function rbxAll(){return RM??=(async()=>{const ids=[...new Set(S.accounts.map(x=>x.id))],m={};
- try{const u=await fetch('https://users.roproxy.com/v1/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userIds:ids,excludeBannedUsers:false})}).then(r=>r.json());u.data.forEach(x=>m[x.id]={name:x.name})}catch{}
- try{const t=await fetch(`https://thumbnails.roproxy.com/v1/users/avatar-headshot?userIds=${ids.join(',')}&size=420x420&format=Png`).then(r=>r.json());t.data.forEach(x=>(m[x.targetId]??={}).img=x.imageUrl)}catch{}return m})()}
+const NU=[id=>`https://users.roproxy.com/v1/users/${id}`,id=>`https://corsproxy.io/?url=${encodeURIComponent('https://users.roblox.com/v1/users/'+id)}`,id=>`https://api.allorigins.win/raw?url=${encodeURIComponent('https://users.roblox.com/v1/users/'+id)}`];
+const sig=()=>AbortSignal.timeout?AbortSignal.timeout(6000):undefined;
+async function nameOf(id){for(const f of NU){try{const j=await(await fetch(f(id),{signal:sig()})).json();if(j.name)return j.name}catch{}}}
+function rbxAll(){return RM??=(async()=>{const ids=[...new Set(S.accounts.map(x=>x.id))],m={};let c={};try{c=JSON.parse(localStorage.rn||'{}')}catch{}
+ ids.forEach(i=>{if(c[i])m[i]={name:c[i]}});
+ try{const u=await fetch('https://users.roproxy.com/v1/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userIds:ids,excludeBannedUsers:false}),signal:sig()}).then(r=>r.json());u.data.forEach(x=>(m[x.id]??={}).name=x.name)}catch{}
+ await Promise.all(ids.filter(i=>!m[i]?.name).map(async i=>{const n=await nameOf(i);if(n)(m[i]??={}).name=n}));
+ try{localStorage.rn=JSON.stringify(Object.fromEntries(ids.filter(i=>m[i]?.name).map(i=>[i,m[i].name])))}catch{}
+ try{const t=await fetch(`https://thumbnails.roproxy.com/v1/users/avatar-headshot?userIds=${ids.join(',')}&size=420x420&format=Png`,{signal:sig()}).then(r=>r.json());t.data.forEach(x=>(m[x.targetId]??={}).img=x.imageUrl)}catch{}return m})()}
 
 const card=p=>`<a class=card href="#/post/${p.id}">${p.image?`<img src="${esc(p.image)}" alt="">`:''}<div class=cb><span class=cat>${esc(p.category)}</span><h3>${esc(p.title)}</h3>${p.summary?`<p>${esc(p.summary)}</p>`:''}<small>${dt(p.date)} by ${nm(p.author)}</small></div></a>`;
 const sorted=()=>[...posts].sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -40,7 +46,7 @@ const isId=a=>/^\d+$/.test(String(a)),nm=a=>isId(a)?`<span data-u="${a}"></span>
 async function fill(){document.querySelectorAll('[data-a]').forEach(e=>{const id=e.dataset.a;let st=0;e.hidden=false;
   e.onerror=async()=>{const s=(await rbxAll())[id]?.img;if(st++==0&&s)e.src=s;else e.hidden=true};
   e.src=`https://www.roblox.com/headshot-thumbnail/image?userId=${id}&width=420&height=420&format=png`});
- const m=await rbxAll();document.querySelectorAll('[data-u]').forEach(e=>e.textContent=m[e.dataset.u]?.name||e.dataset.f||'Staff')}
+ const m=await rbxAll();document.querySelectorAll('[data-u]').forEach(e=>e.textContent=m[e.dataset.u]?.name||e.dataset.f||'User '+e.dataset.u)}
 function moveInd(){const on=$('.links a.on'),i=$('.ind');if(!i)return;if(!on){i.style.opacity=0;return}
  if(!i.dataset.p){i.style.transition='none';i.dataset.p=1}
  i.style.opacity=1;i.style.width=on.offsetWidth+'px';i.style.transform=`translateX(${on.offsetLeft}px)`;
@@ -67,7 +73,7 @@ async function render(){
  if(r=='hash'){shell(`<div class=box><label>Password to hash (SHA-256)</label><input id=hp><button onclick="sha($('#hp').value).then(x=>$('#ho').textContent=x)">Make hash</button><p id=ho style="word-break:break-all"></p></div>`);return}
  if(r=='login'){shell(`<form class=f id=lf><h2>Staff login</h2><label>Roblox username</label><input id=lu required><label>Password</label><input id=lp type=password required><button>Log in</button><p id=le style=color:#c00></p></form>`);
   $('#lf').onsubmit=async e=>{e.preventDefault();const n=$('#lu').value.trim(),p=$('#lp').value,h=await sha(p);
-   const m=await rbxAll(),ac=S.accounts.find(x=>(m[x.id]?.name||x.username||'').toLowerCase()==n.toLowerCase()&&(x.passwordHash?x.passwordHash==h:x.password==p));
+   const m=await rbxAll(),ac=S.accounts.find(x=>[m[x.id]?.name,x.username,String(x.id)].some(v=>String(v||'').toLowerCase()==n.toLowerCase())&&(x.passwordHash?x.passwordHash==h:x.password==p));
    if(!ac)return $('#le').textContent='Wrong username or password.';sessionStorage.u=JSON.stringify({id:String(ac.id),username:m[ac.id]?.name||ac.username,position:ac.position});location.hash='#/admin'};return}
  if(r=='c'){const c=decodeURIComponent(a),l=sorted().filter(p=>p.category==c);shell(`<h2>${esc(c)}</h2><div class=grid>${l.map(card).join('')||'<p>No stories in this category yet.</p>'}</div>`,'/c/'+c);return}
  if(r=='post'){const p=posts.find(x=>x.id==a);if(!p){shell('<p>Story not found.</p>');return}
