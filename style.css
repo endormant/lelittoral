@@ -37,3 +37,13 @@ footer{border-top:1px solid var(--line);padding:34px 0 22px}.fgrid{display:grid;
 .sec .body{font-size:16px}.sec h2{margin:0 0 8px}.parent p{color:var(--mut)}
 .staff{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin-top:22px}.staff div{width:210px;background:var(--bg);padding:20px 12px;border:1px solid var(--line);border-radius:18px;display:flex;flex-direction:column;align-items:center;gap:2px}
 .staff img{width:84px;height:84px;border-radius:50%;background:var(--line);object-fit:cover;margin-bottom:6px}.pos{color:var(--acc);font-size:13px}.staff a{font-size:12px;color:var(--mut);margin-top:6px}.staff a:hover{color:var(--text)}
+
+.links{position:relative}.links a{position:relative;z-index:1}.links a.on{background:none;color:var(--text)}
+.ind{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:999px;background:var(--bg);opacity:0;pointer-events:none;transition:transform .4s cubic-bezier(.3,.8,.3,1),width .4s cubic-bezier(.3,.8,.3,1),opacity .2s}
+@keyframes up{from{opacity:0;transform:translateY(10px)}}@keyframes sh{to{background-position:-200% 0}}
+main.in{animation:up .38s cubic-bezier(.2,.7,.2,1)}
+.sk{height:260px;border-radius:20px;border:1px solid var(--line);background:linear-gradient(90deg,var(--panel),var(--line),var(--panel));background-size:200% 100%;animation:sh 1.3s linear infinite}
+.card{transition:border-color .2s,transform .3s cubic-bezier(.2,.7,.2,1)}.card:hover{transform:translateY(-4px)}.card img{transition:transform .6s cubic-bezier(.2,.7,.2,1)}.card:hover img{transform:scale(1.045)}
+button,.btn,.links a,.tools a{transition:background-color .2s,color .2s,transform .15s,opacity .2s}button:active,.btn:active{transform:scale(.97)}
+.tt *,.tt *::before{transition:background-color .35s,color .35s,border-color .35s!important}
+@media(prefers-reduced-motion:reduce){*,*::before{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
