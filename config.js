@@ -1,8 +1,9 @@
 // ====== EDIT THIS FILE ======
 window.SITE = {
-  name: "Coastal News Network",
-  tagline: "Roleplay news for the coast",
-  accent: "#0a7ea4",
+  name: "Le Littoral",
+  tagline: "L’actualité de la côte",
+  accent: "#b45309",
+  logo: "logo.png",
   // Your GitHub repo (needed so employees can publish from the website)
   repo: { owner: "YOUR_GITHUB_USERNAME", name: "YOUR_REPO_NAME", branch: "main" },
   categories: ["Local", "Politics", "Sports", "Weather", "Opinion"],
