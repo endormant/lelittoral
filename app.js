@@ -28,8 +28,10 @@ const saveSite=()=>ghPut('data/site.json',b64(JSON.stringify(site,null,1)),'Upda
 async function up(f){const d=await new Promise(r=>{const x=new FileReader();x.onload=()=>r(x.result.split(',')[1]);x.readAsDataURL(f)});const p='images/'+Date.now()+'-'+f.name.replace(/[^\w.]/g,'_');await ghPut(p,d,'Upload image');return p}
 async function sync(){if(!localStorage.gh)return;for(const[k,p]of[['posts','data/posts.json'],['site','data/site.json']]){const g=await ghGet(p);if(g)k=='posts'?posts=JSON.parse(g.text):site=JSON.parse(g.text)}}
 
-async function avatar(n){try{const u=await(await fetch('https://users.roproxy.com/v1/usernames/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usernames:[n],excludeBannedUsers:false})})).json();
- const t=await(await fetch(`https://thumbnails.roproxy.com/v1/users/avatar-headshot?userIds=${u.data[0].id}&size=420x420&format=Png`)).json();return t.data[0].imageUrl}catch{return''}}
+const rc={};
+function rbx(n){return rc[n]??=(async()=>{try{const u=await(await fetch('https://users.roproxy.com/v1/usernames/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usernames:[n],excludeBannedUsers:false})})).json(),id=u.data[0].id;
+ const t=await(await fetch(`https://thumbnails.roproxy.com/v1/users/avatar-headshot?userIds=${id}&size=420x420&format=Png`)).json();return{id,img:t.data[0].imageUrl}}catch{return{}}})()}
+const avatar=n=>rbx(n).then(r=>r.img||'');
 
 const card=p=>`<a class=card href="#/post/${p.id}">${p.image?`<img src="${esc(p.image)}" alt="">`:''}<div class=cb><span class=cat>${esc(p.category)}</span><h3>${esc(p.title)}</h3>${p.summary?`<p>${esc(p.summary)}</p>`:''}<small>${dt(p.date)} by ${esc(p.author)}</small></div></a>`;
 const sorted=()=>[...posts].sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -55,8 +57,11 @@ async function render(){
  if(r=='post'){const p=posts.find(x=>x.id==a);if(!p){shell('<p>Story not found.</p>');return}
   shell(`<article class=art><a class=back href="#/">&larr; Back to all articles</a><div class=meta><a class=cat href="#/c/${encodeURIComponent(p.category)}">${esc(p.category)}</a> &middot; ${dt(p.date)}</div><h1>${esc(p.title)}</h1>${p.summary?`<p class=sum>${esc(p.summary)}</p>`:''}<div class=by><img id=pa alt=""><b>${esc(p.author)}</b>${u?`<a class="btn g" href="#/edit/${p.id}">Edit</a>`:''}</div>${p.image?`<img class=cover src="${esc(p.image)}" alt="">`:''}<hr><div class=body>${md(p.body)}</div></article>${S.discord?`<div class=cta><h3>Enjoyed this article?</h3><p>Join our Discord to discuss and connect with other readers.</p><a class=btn href="${esc(S.discord)}">Join Discord</a></div>`:''}`);
   avatar(p.author).then(s=>{const e=$('#pa');if(e&&s)e.src=s;else if(e)e.remove()});return}
- if(r=='about'){shell(`<div class=art><div class=body>${md(site.about)}</div><div class=staff>${S.accounts.map((x,i)=>`<div><img id=av${i} alt=""><b>${esc(x.username)}</b><small>${esc(x.position)}</small></div>`).join('')}</div></div>`,'/about');
-  S.accounts.forEach((x,i)=>avatar(x.username).then(s=>{const e=$('#av'+i);if(e&&s)e.src=s}));return}
+ if(r=='about'){const P=S.parent;
+  shell(`<section class="sec mission"><div class=in>${md(site.about)}</div></section>
+  <section class="sec center"><div class=in><h2>${esc(S.teamTitle||'Leadership')}</h2><p class=mut>${esc(S.teamSub||'The people behind the newsroom.')}</p></div><div class=staff>${S.accounts.map((x,i)=>`<div><img id=av${i} alt=""><b>${esc(x.username)}</b><span class=pos>${esc(x.position)}</span><a id=pf${i} target=_blank rel=noopener href="https://www.roblox.com/search/users?keyword=${encodeURIComponent(x.username)}">Roblox Profile &#8599;</a></div>`).join('')}</div></section>
+  ${P?`<section class="sec parent"><div class=in><h2>${esc(P.title)}</h2><p>${esc(P.text)}</p>${P.link?`<a class="btn g" target=_blank rel=noopener href="${esc(P.link)}">${esc(P.label||'Learn more')} &#8599;</a>`:''}</div></section>`:''}`,'/about');
+  S.accounts.forEach((x,i)=>rbx(x.username).then(r=>{const e=$('#av'+i);if(e&&r.img)e.src=r.img;const l=$('#pf'+i);if(l&&r.id)l.href=`https://www.roblox.com/users/${r.id}/profile`}));return}
  if(r=='admin'){const b=site.banner;
   shell(`<h2>Dashboard</h2><p>Signed in as ${esc(u.username)} (${esc(u.position)}).</p><a class=btn href="#/edit/new">New story</a>
   <div class=box style="margin:14px 0">${sorted().map(p=>`<div class=row><span><b>${esc(p.title)}</b>${p.featured?' (top story)':''}<br><small>${esc(p.category)}, ${dt(p.date)}</small></span><span><a class="btn" href="#/edit/${p.id}">Edit</a><button class=d data-del="${p.id}">Delete</button></span></div>`).join('')||'No stories yet.'}</div>
