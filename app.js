@@ -5,7 +5,7 @@ const user=()=>JSON.parse(sessionStorage.u||'null');
 const sha=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)))].map(b=>b.toString(16).padStart(2,'0')).join('');
 const dt=d=>new Date(d).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
 const loc=d=>{const x=new Date(d);return new Date(x-x.getTimezoneOffset()*6e4).toISOString().slice(0,16)};
-document.title=S.name;document.documentElement.dataset.theme=localStorage.theme||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+document.title=S.name;
 
 // tiny markdown: # to ####, **bold**, *italic*, [link](url), ![img](url), - lists
 function md(t){const inl=s=>esc(s).replace(/!\[([^\]]*)\]\(([^)]+)\)/g,'<img alt="$1" src="$2">').replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener" style="color:var(--acc)">$1</a>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i>$1</i>');
@@ -30,15 +30,17 @@ async function sync(){if(!localStorage.gh)return;for(const[k,p]of[['posts','data
 
 let RM;
 function rbxAll(){return RM??=(async()=>{const ids=[...new Set(S.accounts.map(x=>x.id))],m={};
- try{const[u,t]=await Promise.all([fetch('https://users.roproxy.com/v1/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userIds:ids,excludeBannedUsers:false})}).then(r=>r.json()),fetch(`https://thumbnails.roproxy.com/v1/users/avatar-headshot?userIds=${ids.join(',')}&size=420x420&format=Png`).then(r=>r.json())]);
- u.data.forEach(x=>m[x.id]={name:x.name});t.data.forEach(x=>(m[x.targetId]??={}).img=x.imageUrl)}catch{}return m})()}
+ try{const u=await fetch('https://users.roproxy.com/v1/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userIds:ids,excludeBannedUsers:false})}).then(r=>r.json());u.data.forEach(x=>m[x.id]={name:x.name})}catch{}
+ try{const t=await fetch(`https://thumbnails.roproxy.com/v1/users/avatar-headshot?userIds=${ids.join(',')}&size=420x420&format=Png`).then(r=>r.json());t.data.forEach(x=>(m[x.targetId]??={}).img=x.imageUrl)}catch{}return m})()}
 
 const card=p=>`<a class=card href="#/post/${p.id}">${p.image?`<img src="${esc(p.image)}" alt="">`:''}<div class=cb><span class=cat>${esc(p.category)}</span><h3>${esc(p.title)}</h3>${p.summary?`<p>${esc(p.summary)}</p>`:''}<small>${dt(p.date)} by ${nm(p.author)}</small></div></a>`;
 const sorted=()=>[...posts].sort((a,b)=>new Date(b.date)-new Date(a.date));
 
 const isId=a=>/^\d+$/.test(String(a)),nm=a=>isId(a)?`<span data-u="${a}"></span>`:esc(a);
-async function fill(){const m=await rbxAll();document.querySelectorAll('[data-u]').forEach(e=>e.textContent=m[e.dataset.u]?.name||e.dataset.f||'Staff');
- document.querySelectorAll('[data-a]').forEach(e=>{const s=m[e.dataset.a]?.img;s?e.src=s:e.hidden=true})}
+async function fill(){document.querySelectorAll('[data-a]').forEach(e=>{const id=e.dataset.a;let st=0;e.hidden=false;
+  e.onerror=async()=>{const s=(await rbxAll())[id]?.img;if(st++==0&&s)e.src=s;else e.hidden=true};
+  e.src=`https://www.roblox.com/headshot-thumbnail/image?userId=${id}&width=420&height=420&format=png`});
+ const m=await rbxAll();document.querySelectorAll('[data-u]').forEach(e=>e.textContent=m[e.dataset.u]?.name||e.dataset.f||'Staff')}
 function moveInd(){const on=$('.links a.on'),i=$('.ind');if(!i)return;if(!on){i.style.opacity=0;return}
  if(!i.dataset.p){i.style.transition='none';i.dataset.p=1}
  i.style.opacity=1;i.style.width=on.offsetWidth+'px';i.style.transform=`translateX(${on.offsetLeft}px)`;
@@ -50,11 +52,10 @@ function shell(h,route){const u=user(),b=site.banner,sig=JSON.stringify([!!u,b])
   const cats=S.categories.map(c=>`<a href="#/c/${encodeURIComponent(c)}" data-r="/c/${esc(c)}">${esc(c)}</a>`).join(''),brand=`<a class=brand href="#/"><img src="${esc(S.logo)}" alt=""><b>${esc(S.name)}</b></a>`;
   app.innerHTML=`${b.on&&b.text?`<div id=banner>${b.link?`<a href="${esc(b.link)}">${esc(b.text)}</a>`:esc(b.text)}</div>`:''}
  <nav class=pill>${brand}<div class=links><span class=ind></span><a href="#/" data-r="/">Home</a>${cats}<a href="#/about" data-r="/about">About</a></div>
- <div class=tools>${u?`<a href="#/admin">Dashboard</a><a href="#/logout">Log out</a>`:`<a href="#/login">Staff login</a>`}<button class=g id=tg></button></div></nav>
+ <div class=tools>${u?`<a href="#/admin">Dashboard</a><a href="#/logout">Log out</a>`:`<a href="#/login">Staff login</a>`}</div></nav>
  <main class=w id=main></main>
  <footer><div class=w><div class=fgrid><div>${brand}<p>${esc(S.footer)}</p></div><div><h4>Navigation</h4><a href="#/">Home</a>${S.categories.map(c=>`<a href="#/c/${encodeURIComponent(c)}">${esc(c)}</a>`).join('')}<a href="#/about">About</a></div>${S.discord?`<div><h4>Connect</h4><a href="${esc(S.discord)}">Discord</a></div>`:'<div></div>'}</div><p class=legal>&copy; ${new Date().getFullYear()} ${esc(S.name)}. ${esc(S.legal)}</p></div></footer>`;
-  const tg=$('#tg'),R=document.documentElement,set=t=>{R.classList.add('tt');setTimeout(()=>R.classList.remove('tt'),400);R.dataset.theme=t;localStorage.theme=t;tg.textContent=t=='dark'?'Light mode':'Dark mode'};
-  set(R.dataset.theme);tg.onclick=()=>set(R.dataset.theme=='dark'?'light':'dark')}
+  }
  const m=$('#main');m.innerHTML=h;m.classList.remove('in');void m.offsetWidth;m.classList.add('in');
  if(app.dataset.h!=location.hash){app.dataset.h=location.hash;scrollTo(0,0)}
  document.querySelectorAll('.links a').forEach(x=>x.classList.toggle('on',x.dataset.r==route));moveInd();fill()}
