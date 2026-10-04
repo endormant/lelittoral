@@ -5,7 +5,7 @@ const user=()=>JSON.parse(sessionStorage.u||'null');
 const sha=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)))].map(b=>b.toString(16).padStart(2,'0')).join('');
 const dt=d=>new Date(d).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
 const loc=d=>{const x=new Date(d);return new Date(x-x.getTimezoneOffset()*6e4).toISOString().slice(0,16)};
-document.documentElement.style.setProperty('--sea',S.accent);
+document.documentElement.style.setProperty('--sea',S.accent);document.title=S.name;
 
 // tiny markdown: # to ####, **bold**, *italic*, [link](url), ![img](url), - lists
 function md(t){const inl=s=>esc(s).replace(/!\[([^\]]*)\]\(([^)]+)\)/g,'<img alt="$1" src="$2">').replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener" style="color:var(--sea)">$1</a>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i>$1</i>');
@@ -36,7 +36,7 @@ const sorted=()=>[...posts].sort((a,b)=>new Date(b.date)-new Date(a.date));
 
 function shell(h,route){const u=user(),b=site.banner;
  app.innerHTML=`${b.on&&b.text?`<div id=banner>${b.link?`<a href="${esc(b.link)}">${esc(b.text)}</a>`:esc(b.text)}</div>`:''}
- <header class=mast><div class=w><h1>${esc(S.name)}</h1><p>${esc(S.tagline)}</p></div></header>
+ <header class=mast><div class=w><a class=brand href="#/"><img src="${esc(S.logo)}" alt=""><span><h1>${esc(S.name)}</h1><p>${esc(S.tagline)}</p></span></a></div></header>
  <nav><div class=w><a href="#/" class="${route=='/'?'on':''}">Home</a>${S.categories.map(c=>`<a href="#/c/${encodeURIComponent(c)}" class="${route=='/c/'+c?'on':''}">${esc(c)}</a>`).join('')}<a href="#/about">About</a>
  <span class=r>${u?`<a href="#/admin">Dashboard</a><a href="#/logout">Log out</a>`:`<a href="#/login">Staff login</a>`}</span></div></nav><main class=w>${h}</main>`}
 
