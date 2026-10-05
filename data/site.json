@@ -1,8 +1,8 @@
 {
  "banner": {
-  "on": true,
-  "text": "Government Approval Survey",
-  "link": "https://docs.google.com/forms/d/e/1FAIpQLSdZ1_bbP8dkRUW3ilc4Wt5nXSahAvyYwfvmyx8j5yD4RMwVnw/viewform"
+  "on": false,
+  "text": "",
+  "link": ""
  },
  "about": ""
 }
