@@ -23,6 +23,28 @@ async function ghPut(p,b64,msg){token();const r0=await fetch(api(p)+'?ref='+S.re
  const r=await fetch(api(p),{method:'PUT',headers:H(),body:JSON.stringify({message:msg,content:b64,branch:S.repo.branch,sha})});
  if(!r.ok){if(r.status==401)delete localStorage.gh;throw Error('GitHub: '+(await r.json()).message)}}
 const b64=s=>btoa(unescape(encodeURIComponent(s)));
+const BASE=location.origin+location.pathname.replace(/[^/]*$/,''),shareUrl=id=>BASE+'p/'+encodeURIComponent(id)+'/',abs=u=>!u?'':/^https?:\/\//.test(u)?u:BASE+u.replace(/^\.?\//,'');
+const plain=t=>String(t||'').replace(/!\[[^\]]*\]\([^)]*\)/g,'').replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/^[#>\-\s]+|-{3,}/gm,'').replace(/[*_`]/g,'').replace(/\s+/g,' ').trim();
+const newId=t=>{const b=t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60)||'story';let i=b;while(posts.some(x=>x.id==i))i=b+'-'+Math.random().toString(36).slice(2,5);return i};
+// Static page per story: gives Discord/Twitter a real URL with link-preview (Open Graph) tags, then redirects to the app.
+const EM={logo:'<:lelittoral:1541450916190756875>',caret:'<:caret:1556389058555416616>',page:'<:page:1556389096463667280>',dot:'<:dot:1556389078600126627>',...S.discordEmoji};
+function sharePage(p){const t=plain(p.body),d=(p.summary||'').trim()||(t.length>250?t.slice(0,247).trim()+'...':t),mins=Math.max(1,Math.ceil(t.split(' ').length/200)),img=abs(p.image),go=BASE+'#/post/'+encodeURIComponent(p.id),m=(k,v)=>`<meta ${k} content="${esc(v)}">`,cat=String(p.category).toLowerCase();
+ const comp={component:{type:17,accent_color:0xff8c00,components:[
+  {type:10,content:`**${EM.logo} ${S.name}**\n-# ${cat}${p.sub?` ${EM.caret} ${p.sub}`:''}`},
+  {type:14,divider:true,spacing:1},
+  {type:10,content:`## ${p.title}\n${d}`.slice(0,4000)},
+  ...(img?[{type:12,items:[{media:{url:img}}]}]:[]),
+  {type:14,divider:true,spacing:1},
+  {type:10,content:`-# ${EM.page} [Article](${go})${EM.dot} ${mins} min read`}]}};
+ return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(p.title)} | ${esc(S.name)}</title>
+${m('name="theme-color"','#ff8c00')}${m('property="og:type"','article')}${m('property="og:site_name"',`${S.name} › ${cat}${p.sub?' › '+p.sub:''}`)}${m('property="og:title"',p.title)}${m('property="og:description"',d+'\n\nArticle • '+mins+' min read')}${m('property="og:url"',shareUrl(p.id))}${m('property="og:image"',img||abs(S.logo))}
+${m('name="twitter:card"',img?'summary_large_image':'summary')}${m('name="twitter:title"',p.title)}${m('name="twitter:description"',d)}${m('name="twitter:image"',img||abs(S.logo))}
+<script id="discord:component-embed" type="application/json">
+${JSON.stringify(comp,null,2).replace(/<\//g,'<\\/')}
+</script>
+<link rel="icon" href="${BASE}favicon-32x32.png"><meta http-equiv="refresh" content="0;url=${esc(go)}"></head><body><script>location.replace(${JSON.stringify(go)})</script><p><a href="${esc(go)}">Read the article</a></p></body></html>`}
+const sharePut=p=>ghPut('p/'+p.id+'/index.html',b64(sharePage(p)),'Share page: '+p.title);
+async function ghDel(p){const r0=await fetch(api(p)+'?ref='+S.repo.branch,{headers:H()});if(!r0.ok)return;await fetch(api(p),{method:'DELETE',headers:H(),body:JSON.stringify({message:'Remove '+p,sha:(await r0.json()).sha,branch:S.repo.branch})})}
 const saveData=()=>ghPut('data/posts.json',b64(JSON.stringify(posts,null,1)),'Update posts');
 const saveSite=()=>ghPut('data/site.json',b64(JSON.stringify(site,null,1)),'Update site settings');
 async function up(f){const d=await new Promise(r=>{const x=new FileReader();x.onload=()=>r(x.result.split(',')[1]);x.readAsDataURL(f)});const p='images/'+Date.now()+'-'+f.name.replace(/[^\w.]/g,'_');await ghPut(p,d,'Upload image');return p}
@@ -77,23 +99,27 @@ async function render(){
    if(!ac)return $('#le').textContent=Object.values(m).some(v=>v.name)?'Wrong username or password.':'Could not load Roblox usernames. Check your connection and try again.';sessionStorage.u=JSON.stringify({id:String(ac.id),username:m[ac.id].name,position:ac.position});location.hash='#/admin'};return}
  if(r=='c'){const c=decodeURIComponent(a),l=sorted().filter(p=>p.category==c);shell(`<h2>${esc(c)}</h2><div class=grid>${l.map(card).join('')||'<p>No stories in this category yet.</p>'}</div>`,'/c/'+c);return}
  if(r=='post'){const p=posts.find(x=>x.id==a);if(!p){shell('<p>Story not found.</p>');return}
-  shell(`<article class=art><a class=back href="#/">&larr; Back to all articles</a><div class=meta><a class=cat href="#/c/${encodeURIComponent(p.category)}">${esc(p.category)}</a> &middot; ${dt(p.date)}</div><h1>${esc(p.title)}</h1>${p.summary?`<p class=sum>${esc(p.summary)}</p>`:''}<div class=by>${isId(p.author)?`<img data-a="${p.author}" alt="">`:''}<b>${nm(p.author)}</b>${u?`<a class="btn g" href="#/edit/${p.id}">Edit</a>`:''}</div>${p.image?`<img class=cover src="${esc(p.image)}" alt="">`:''}<hr><div class=body>${md(p.body)}</div></article>${S.discord?`<div class=cta><h3>Enjoyed this article?</h3><p>Join our Discord to discuss and connect with other readers.</p><a class=btn href="${esc(S.discord)}">Join Discord</a></div>`:''}`);
+  shell(`<article class=art><a class=back href="#/">&larr; Back to all articles</a><div class=meta><a class=cat href="#/c/${encodeURIComponent(p.category)}">${esc(p.category)}</a> &middot; ${dt(p.date)}</div><h1>${esc(p.title)}</h1>${p.summary?`<p class=sum>${esc(p.summary)}</p>`:''}<div class=by>${isId(p.author)?`<img data-a="${p.author}" alt="">`:''}<b>${nm(p.author)}</b><button class=g id=sh>Copy link</button>${u?`<a class="btn g" href="#/edit/${p.id}">Edit</a>`:''}</div>${p.image?`<img class=cover src="${esc(p.image)}" alt="">`:''}<hr><div class=body>${md(p.body)}</div></article>${S.discord?`<div class=cta><h3>Enjoyed this article?</h3><p>Join our Discord to discuss and connect with other readers.</p><a class=btn href="${esc(S.discord)}">Join Discord</a></div>`:''}`);
+  $('#sh').onclick=e=>{navigator.clipboard.writeText(shareUrl(p.id));e.target.textContent='Copied!';setTimeout(()=>e.target.textContent='Copy link',1500)};
   return}
  if(r=='about'){const P=S.parent;
   shell(`<section class="sec mission"><div class=in>${md(site.about)}</div></section>
   <section class="sec center"><div class=in><h2>${esc(S.teamTitle||'Leadership')}</h2><p class=mut>${esc(S.teamSub||'The people behind the newsroom.')}</p></div><div class=staff>${S.accounts.map(x=>`<div><img data-a="${x.id}" alt=""><b data-u="${x.id}" data-f="${esc(x.username||'')}"></b><span class=pos>${esc(x.position)}</span><a target=_blank rel=noopener href="https://www.roblox.com/users/${x.id}/profile">Roblox Profile &#8599;</a></div>`).join('')}</div></section>
   ${P?`<section class="sec parent"><div class=in><h2>${esc(P.title)}</h2><p>${esc(P.text)}</p>${P.link?`<a class="btn g" target=_blank rel=noopener href="${esc(P.link)}">${esc(P.label||'Learn more')} &#8599;</a>`:''}</div></section>`:''}`,'/about');return}
  if(r=='admin'){const b=site.banner;
-  shell(`<h2>Dashboard</h2><p>Signed in as ${esc(u.username)} (${esc(u.position)}).</p><a class=btn href="#/edit/new">New story</a>
-  <div class=box style="margin:14px 0">${sorted().map(p=>`<div class=row><span><b>${esc(p.title)}</b>${p.featured?' (top story)':''}<br><small>${esc(p.category)}, ${dt(p.date)}</small></span><span><a class="btn" href="#/edit/${p.id}">Edit</a><button class=d data-del="${p.id}">Delete</button></span></div>`).join('')||'No stories yet.'}</div>
+  shell(`<h2>Dashboard</h2><p>Signed in as ${esc(u.username)} (${esc(u.position)}).</p><a class=btn href="#/edit/new">New story</a><button class=g id=rb>Rebuild share links</button><p class=mut style="margin:6px 0">To get an automatic Discord preview, paste the story's <b>Copy link</b> URL (it looks like <code>/p/story-name/</code>).</p>
+  <div class=box style="margin:14px 0">${sorted().map(p=>`<div class=row><span><b>${esc(p.title)}</b>${p.featured?' (top story)':''}<br><small>${esc(p.category)}, ${dt(p.date)}</small></span><span><button class=g data-cp="${esc(p.id)}">Copy link</button><a class="btn" href="#/edit/${p.id}">Edit</a><button class=d data-del="${p.id}">Delete</button></span></div>`).join('')||'No stories yet.'}</div>
   <form class=f id=sf><h3>Site settings</h3><label><input type=checkbox id=bo ${b.on?'checked':''}> Show banner on every page</label><label>Banner text</label><input id=bt value="${esc(b.text)}"><label>Banner link (optional)</label><input id=bl value="${esc(b.link)}">
   <label>About page text</label><textarea id=ab style="min-height:140px">${esc(site.about)}</textarea><button>Save settings</button></form>`);
-  document.querySelectorAll('[data-del]').forEach(x=>x.onclick=async()=>{if(!confirm('Delete this story?'))return;try{posts=posts.filter(p=>p.id!=x.dataset.del);await saveData();render()}catch(e){alert(e.message)}});
+  const cp=(e,id)=>{navigator.clipboard.writeText(shareUrl(id));const t=e.textContent;e.textContent='Copied!';setTimeout(()=>e.textContent=t,1500)};
+  document.querySelectorAll('[data-cp]').forEach(x=>x.onclick=()=>cp(x,x.dataset.cp));
+  $('#rb').onclick=async e=>{const b=e.target;try{for(let i=0;i<posts.length;i++){b.textContent=`Building ${i+1}/${posts.length}...`;await sharePut(posts[i])}b.textContent='Done'}catch(x){alert(x.message);b.textContent='Rebuild share links'}};
+  document.querySelectorAll('[data-del]').forEach(x=>x.onclick=async()=>{if(!confirm('Delete this story?'))return;try{posts=posts.filter(p=>p.id!=x.dataset.del);await saveData();await ghDel('p/'+x.dataset.del+'/index.html');render()}catch(e){alert(e.message)}});
   $('#sf').onsubmit=async e=>{e.preventDefault();site={banner:{on:$('#bo').checked,text:$('#bt').value,link:$('#bl').value},about:$('#ab').value};try{await saveSite();alert('Saved. The live site updates in about a minute.');render()}catch(e){alert(e.message)}};return}
  if(r=='edit'){const old=posts.find(x=>x.id==a)||{},p={category:S.categories[0],date:new Date().toISOString(),author:String(u.id),image:'',featured:false,body:'',title:'',...old};
   shell(`<form class=f id=pf><h2>${old.id?'Edit':'New'} story</h2><label>Title</label><input id=t value="${esc(p.title)}" required>
   <label>Summary (one line, optional)</label><input id=s value="${esc(p.summary||'')}"><label>Category</label><select id=c>${S.categories.map(c=>`<option ${c==p.category?'selected':''}>${esc(c)}</option>`).join('')}</select>
-  <label>Date and time</label><input id=d type=datetime-local value="${loc(p.date)}" required><label>Author</label><select id=a>${[...new Set([...S.accounts.map(x=>String(x.id)),String(p.author)])].map(v=>`<option value="${esc(v)}" ${v==p.author?'selected':''} ${isId(v)?`data-u="${v}"`:''}>${isId(v)?'':esc(v)}</option>`).join('')}</select>
+  <label>Tag (optional, e.g. a country; shown in the Discord preview)</label><input id=sb value="${esc(p.sub||'')}"><label>Date and time</label><input id=d type=datetime-local value="${loc(p.date)}" required><label>Author</label><select id=a>${[...new Set([...S.accounts.map(x=>String(x.id)),String(p.author)])].map(v=>`<option value="${esc(v)}" ${v==p.author?'selected':''} ${isId(v)?`data-u="${v}"`:''}>${isId(v)?'':esc(v)}</option>`).join('')}</select>
   <label>Cover image (URL or upload)</label><input id=i value="${esc(p.image)}"><input type=file id=cf accept="image/*">
   <label><input type=checkbox id=f ${p.featured?'checked':''}> Top story (large banner on Home)</label>
   <label>Story</label><div class=tb>${[['H1','# '],['H2','## '],['H3','### '],['H4','#### ']].map(([l,s])=>`<button type=button class=g data-i="${s}">${l}</button>`).join('')}<button type=button class=g data-w="**">Bold</button><button type=button class=g data-w="*">Italic</button><button type=button class=g id=lk>Link</button><button type=button class=g id=im>Image</button><button type=button class=g id=sp>Separator</button><input type=file id=bf accept="image/*" hidden></div>
@@ -105,8 +131,8 @@ async function render(){
   $('#lk').onclick=()=>{const l=prompt('Link URL');if(l)ins('[',`](${l})`)};$('#im').onclick=()=>{const l=prompt('Image URL (leave blank to upload a file)');l?ins(`\n\n![](${l})\n\n`):$('#bf').click()};
   $('#bf').onchange=async e=>{try{ins(`\n\n![](${await up(e.target.files[0])})\n\n`)}catch(x){alert(x.message)}};
   $('#cf').onchange=async e=>{try{$('#i').value=await up(e.target.files[0])}catch(x){alert(x.message)}};
-  $('#pf').onsubmit=async e=>{e.preventDefault();const n={id:old.id||Date.now().toString(36),title:$('#t').value,category:$('#c').value,date:new Date($('#d').value).toISOString(),author:$('#a').value,summary:$('#s').value,image:$('#i').value,featured:$('#f').checked,body:T.value};
-   try{if(n.featured)posts.forEach(x=>x.featured=false);const i=posts.findIndex(x=>x.id==n.id);i<0?posts.push(n):posts[i]=n;await saveData();location.hash='#/post/'+n.id}catch(x){alert(x.message)}};return}
+  $('#pf').onsubmit=async e=>{e.preventDefault();const n={id:old.id||newId($('#t').value),title:$('#t').value,category:$('#c').value,date:new Date($('#d').value).toISOString(),author:$('#a').value,summary:$('#s').value,sub:$('#sb').value,image:$('#i').value,featured:$('#f').checked,body:T.value};
+   try{if(n.featured)posts.forEach(x=>x.featured=false);const i=posts.findIndex(x=>x.id==n.id);i<0?posts.push(n):posts[i]=n;await saveData();await sharePut(n);location.hash='#/post/'+n.id}catch(x){alert(x.message)}};return}
  // home
  const l=sorted(),top=l.find(p=>p.featured)||l[0],rest=l.filter(p=>p!=top);
  shell(`${top?`<a class=hero href="#/post/${top.id}" style="${top.image?`background-image:url('${esc(top.image)}')`:''}"><div><span class=tag>${esc(top.category)}</span><h2>${esc(top.title)}</h2><small style=color:#fff>${dt(top.date)} by ${nm(top.author)}</small></div></a>`:'<p>No stories yet.</p>'}<div class=grid>${rest.map(card).join('')}</div>`,'/');
